@@ -1,0 +1,13 @@
+[package]
+name = "libafl-fandango-dirty-hack"
+version = "0.1.0"
+edition = "2024"
+
+[[example]]
+name = "run_fandango_example"
+path = "examples/run_fandango_example.rs"
+
+[dependencies]
+libafl = "0.15.3"
+libafl_bolts = "0.15.3"
+pyo3 = { version = "0.25.1", features = ["auto-initialize"] }
