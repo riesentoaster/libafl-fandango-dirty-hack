@@ -25,22 +25,34 @@ struct Args {
     fandango_file: String,
 }
 
+static VIOLENT_CRASH: bool = false;
+
 pub fn main() {
     env_logger::init();
 
     let args = Args::parse();
 
     let mut harness = |input: &BytesInput| {
-        let target = input.target_bytes();
-        let number = match String::from_utf8(target.to_vec()) {
-            Ok(number) => number,
-            Err(_) => return ExitKind::Crash,
+        let target = input.target_bytes().to_vec();
+
+        let number = if VIOLENT_CRASH {
+            String::from_utf8(target).unwrap()
+        } else {
+            match String::from_utf8(target.to_vec()) {
+                Ok(number) => number,
+                Err(_) => return ExitKind::Crash,
+            }
         };
-        let number = match number.parse::<u128>() {
-            Ok(number) => number,
-            Err(_) => return ExitKind::Crash,
+
+        let number = if VIOLENT_CRASH {
+            number.parse::<u128>().unwrap()
+        } else {
+            match number.parse::<u128>() {
+                Ok(number) => number,
+                Err(_) => return ExitKind::Crash,
+            }
         };
-        println!("number: {number}");
+
         if number % 2 == 0 {
             ExitKind::Ok
         } else {
