@@ -29,8 +29,12 @@ use libafl_fandango_dirty_hack::{
 #[command(name = "run_fandango")]
 #[command(about = "Run the fandango interface in Python")]
 struct Args {
+    #[arg(short, long)]
     python_interface_path: String,
+    #[arg(short, long)]
     fandango_file: String,
+    #[arg(short, long, value_parser = Cores::from_cmdline)]
+    cores: Cores,
 }
 
 static VIOLENT_CRASH: bool = true;
@@ -132,7 +136,7 @@ pub fn main() -> Result<(), String> {
         .configuration(EventConfig::from_name("default"))
         .monitor(monitor)
         .run_client(&mut run_client)
-        .cores(&Cores::from_cmdline("3").unwrap())
+        .cores(&args.cores)
         .broker_port(1337)
         .stdout_file(Some("/dev/null"))
         .build()

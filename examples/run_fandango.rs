@@ -5,7 +5,9 @@ use libafl_fandango_dirty_hack::fandango::{FandangoPythonModule, FandangoPythonM
 #[command(name = "run_fandango")]
 #[command(about = "Run the fandango interface in Python")]
 struct Args {
+    #[arg(short, long)]
     python_interface_path: String,
+    #[arg(short, long)]
     fandango_file: String,
 }
 

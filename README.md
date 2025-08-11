@@ -19,7 +19,7 @@ def next_input(generator: A) -> bytes
 Look at [the example](./examples/run_fandango.rs) for how to use the Rust interface to run Fandango. Run it using the following:
 
 ```bash
-cargo run --example run_fandango -- examples/run_fandango.py examples/even_numbers.fan
+cargo run --example run_fandango --release -- --python-interface-path examples/run_fandango.py --fandango-file  examples/even_numbers.fan
 ```
 
 ### Using it in a fuzzer
@@ -29,7 +29,7 @@ Look at the [baby_fuzzer](./examples/baby_fuzzer.rs) for how to build a fuzzer u
 The target is an in-process function that parses the input to a string and then a number and checks if it is even. It will consider any number that does not fit into 128 bits as a crash and thus produce a list of crashes after some time (in the crashes directory).
 
 ```bash
-cargo run --example baby_fuzzer -- examples/run_fandango.py examples/even_numbers.fan
+cargo run --example baby_fuzzer --release -- --python-interface-path examples/run_fandango.py --fandango-file examples/even_numbers.fan --cores all
 ```
 
 ## Known issues
