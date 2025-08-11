@@ -1,21 +1,29 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use libafl::Evaluator;
-use libafl::generators::Generator as _;
-use libafl::monitors::SimpleMonitor;
 use libafl::{
+    Error, Evaluator,
     corpus::{InMemoryCorpus, OnDiskCorpus},
-    events::SimpleEventManager,
+    events::{EventConfig, Launcher},
     executors::{ExitKind, InProcessExecutor},
     feedbacks::CrashFeedback,
     fuzzer::StdFuzzer,
+    generators::Generator as _,
     inputs::{BytesInput, HasTargetBytes},
+    monitors::MultiMonitor,
     schedulers::QueueScheduler,
     state::StdState,
 };
-use libafl_bolts::{current_nanos, rands::StdRand};
-use libafl_fandango_dirty_hack::{fandango::FandangoPythonModule, libafl::FandangoGenerator};
+use libafl_bolts::{
+    core_affinity::Cores,
+    current_nanos,
+    rands::StdRand,
+    shmem::{ShMemProvider, StdShMemProvider},
+};
+use libafl_fandango_dirty_hack::{
+    fandango::{FandangoPythonModule, FandangoPythonModuleInitError},
+    libafl::FandangoGenerator,
+};
 
 #[derive(Parser)]
 #[command(name = "run_fandango")]
@@ -25,68 +33,115 @@ struct Args {
     fandango_file: String,
 }
 
-static VIOLENT_CRASH: bool = false;
+static VIOLENT_CRASH: bool = true;
 
-pub fn main() {
+fn crash() -> ExitKind {
+    if VIOLENT_CRASH {
+        panic!("Violent crash");
+    } else {
+        ExitKind::Crash
+    }
+}
+
+pub fn main() -> Result<(), String> {
     env_logger::init();
 
     let args = Args::parse();
 
-    let mut harness = |input: &BytesInput| {
-        let target = input.target_bytes().to_vec();
+    let monitor = MultiMonitor::new(|s| println!("{s}"));
 
-        let number = if VIOLENT_CRASH {
-            String::from_utf8(target).unwrap()
-        } else {
-            match String::from_utf8(target.to_vec()) {
+    let shmem_provider = StdShMemProvider::new().expect("Failed to init shared memory");
+
+    // Generate one Generator to ensure the interpreter is ready
+    if let Err(FandangoPythonModuleInitError::PyErr(e)) =
+        FandangoPythonModule::new(&args.python_interface_path, &args.fandango_file)
+    {
+        return Err(format!(
+            "You may need to set the PYTHONPATH environment variable to the path of the Python interpreter, e.g. `export PYTHONPATH=$(echo .venv/lib/python*/site-packages)`. Underlying error: {:?}",
+            e
+        ));
+    }
+
+    let mut run_client = |state: Option<_>, mut restarting_mgr, _client_description| {
+        log::info!("Running client");
+
+        let mut generator = FandangoGenerator::new(
+            FandangoPythonModule::new(&args.python_interface_path, &args.fandango_file).unwrap(),
+        );
+
+        let mut objective = CrashFeedback::new();
+
+        let mut state = state.unwrap_or_else(|| {
+            StdState::new(
+                StdRand::with_seed(current_nanos()),
+                InMemoryCorpus::new(),
+                OnDiskCorpus::new(PathBuf::from("./crashes")).unwrap(),
+                &mut (),
+                &mut objective,
+            )
+            .unwrap()
+        });
+
+        let mut fuzzer = StdFuzzer::new(QueueScheduler::new(), (), objective);
+
+        let mut harness = |input: &BytesInput| {
+            let target = input.target_bytes().to_vec();
+
+            let number = match String::from_utf8(target.to_vec()) {
                 Ok(number) => number,
-                Err(_) => return ExitKind::Crash,
+                Err(_) => return crash(),
+            };
+
+            let number = match number.parse::<u128>() {
+                Ok(number) => number,
+                Err(_) => return crash(),
+            };
+
+            if number % 2 == 0 {
+                ExitKind::Ok
+            } else {
+                ExitKind::Crash
             }
         };
 
-        let number = if VIOLENT_CRASH {
-            number.parse::<u128>().unwrap()
-        } else {
-            match number.parse::<u128>() {
-                Ok(number) => number,
-                Err(_) => return ExitKind::Crash,
-            }
-        };
+        let mut executor = InProcessExecutor::new(
+            &mut harness,
+            (),
+            &mut fuzzer,
+            &mut state,
+            &mut restarting_mgr,
+        )
+        .expect("Failed to create the Executor");
 
-        if number % 2 == 0 {
-            ExitKind::Ok
-        } else {
-            ExitKind::Crash
+        loop {
+            let input = match generator.generate(&mut fuzzer) {
+                Ok(input) => input,
+                Err(e) => {
+                    println!("Error generating input: {e:?}");
+                    continue;
+                }
+            };
+            fuzzer
+                .evaluate_input(&mut state, &mut executor, &mut restarting_mgr, &input)
+                .unwrap();
         }
     };
 
-    let mut objective = CrashFeedback::new();
-
-    let mut state = StdState::new(
-        StdRand::with_seed(current_nanos()),
-        InMemoryCorpus::new(),
-        OnDiskCorpus::new(PathBuf::from("./crashes")).unwrap(),
-        &mut (),
-        &mut objective,
-    )
-    .unwrap();
-
-    let mut fuzzer = StdFuzzer::new(QueueScheduler::new(), (), objective);
-
-    let mon = SimpleMonitor::new(|s| println!("{s}"));
-    let mut mgr = SimpleEventManager::new(mon);
-
-    let mut executor = InProcessExecutor::new(&mut harness, (), &mut fuzzer, &mut state, &mut mgr)
-        .expect("Failed to create the Executor");
-
-    let mut generator = FandangoGenerator::new(
-        FandangoPythonModule::new(&args.python_interface_path, &args.fandango_file).unwrap(),
-    );
-
-    loop {
-        let input = generator.generate(&mut fuzzer).unwrap();
-        fuzzer
-            .evaluate_input(&mut state, &mut executor, &mut mgr, &input)
-            .unwrap();
+    match Launcher::builder()
+        .shmem_provider(shmem_provider)
+        .configuration(EventConfig::from_name("default"))
+        .monitor(monitor)
+        .run_client(&mut run_client)
+        .cores(&Cores::from_cmdline("3").unwrap())
+        .broker_port(1337)
+        .stdout_file(Some("/dev/null"))
+        .build()
+        .launch()
+    {
+        Ok(()) => (),
+        Err(Error::ShuttingDown) => println!("Fuzzing stopped by user. Good bye."),
+        Err(err) => return Err(format!("Failed to run launcher: {err:?}")),
     }
+
+    Ok(())
 }
