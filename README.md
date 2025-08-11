@@ -2,7 +2,7 @@
 
 This will allow you to run [Fandango](https://github.com/fandango-fuzzer/fandango) as a [LibAFL](https://github.com/aflplusplus/libafl) Generator.
 
-It works by calling a python script using the [PyO3 interpreter](https://pyo3.rs). That script is expected to implements two functions:
+It works by calling a python script using the [PyO3 interpreter](https://pyo3.rs). That script is expected to implement two functions:
 
 ```python
 def setup(fan_file: str) -> A:
