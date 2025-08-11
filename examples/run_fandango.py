@@ -14,5 +14,5 @@ def next_input(generator: Generator[bytes, None, None]) -> bytes:
 
 if __name__ == "__main__":
     gen = setup("even_numbers.fan")
-    for i in range(10000):
-        _ = next_input(gen)
+    for i in range(10):
+        print(next_input(gen))

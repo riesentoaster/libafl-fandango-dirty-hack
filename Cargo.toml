@@ -4,8 +4,16 @@ version = "0.1.0"
 edition = "2024"
 
 [[example]]
-name = "run_fandango_example"
-path = "examples/run_fandango_example.rs"
+name = "run_fandango"
+path = "examples/run_fandango.rs"
+
+[[example]]
+name = "baby_fuzzer"
+path = "examples/baby_fuzzer.rs"
+
+[dev-dependencies]
+env_logger = "0.11.8"
+clap = { version = "4.5.43", features = ["derive"] }
 
 [dependencies]
 libafl = "0.15.3"
