@@ -8,8 +8,12 @@ name = "run_fandango"
 path = "examples/run_fandango.rs"
 
 [[example]]
-name = "baby_fuzzer"
-path = "examples/baby_fuzzer.rs"
+name = "baby_fuzzer_generator"
+path = "examples/baby_fuzzer_generator.rs"
+
+[[example]]
+name = "baby_fuzzer_mutator"
+path = "examples/baby_fuzzer_mutator.rs"
 
 [dev-dependencies]
 clap = { version = "4.5.43", features = ["derive"] }

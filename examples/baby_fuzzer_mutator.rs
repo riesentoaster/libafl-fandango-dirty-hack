@@ -2,27 +2,29 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use libafl::{
-    Error, Evaluator,
-    corpus::{InMemoryCorpus, OnDiskCorpus},
+    corpus::{Corpus, InMemoryCorpus, OnDiskCorpus, Testcase},
     events::{EventConfig, Launcher},
     executors::{ExitKind, InProcessExecutor},
     feedbacks::CrashFeedback,
-    fuzzer::StdFuzzer,
-    generators::Generator as _,
+    fuzzer::{Fuzzer, StdFuzzer},
     inputs::{BytesInput, HasTargetBytes},
     monitors::MultiMonitor,
+    nonzero,
     schedulers::QueueScheduler,
-    state::StdState,
+    stages::StdMutationalStage,
+    state::{HasCorpus, StdState},
 };
 use libafl_bolts::{
+    Error,
     core_affinity::Cores,
     current_nanos,
     rands::StdRand,
     shmem::{ShMemProvider, StdShMemProvider},
+    tuples::tuple_list,
 };
 use libafl_fandango_dirty_hack::{
     fandango::{FandangoPythonModule, FandangoPythonModuleInitError},
-    libafl::FandangoGenerator,
+    libafl::FandangoPseudoMutator,
 };
 
 #[derive(Parser)]
@@ -69,10 +71,6 @@ pub fn main() -> Result<(), String> {
     let mut run_client = |state: Option<_>, mut restarting_mgr, _client_description| {
         log::info!("Running client");
 
-        let mut generator = FandangoGenerator::new(
-            FandangoPythonModule::new(&args.python_interface_path, &args.fandango_file).unwrap(),
-        );
-
         let mut objective = CrashFeedback::new();
 
         let mut state = state.unwrap_or_else(|| {
@@ -91,7 +89,7 @@ pub fn main() -> Result<(), String> {
         let mut harness = |input: &BytesInput| {
             let target = input.target_bytes().to_vec();
 
-            let number = match String::from_utf8(target.to_vec()) {
+            let number = match String::from_utf8(target) {
                 Ok(number) => number,
                 Err(_) => return crash(),
             };
@@ -117,18 +115,21 @@ pub fn main() -> Result<(), String> {
         )
         .expect("Failed to create the Executor");
 
-        loop {
-            let input = match generator.generate(&mut fuzzer) {
-                Ok(input) => input,
-                Err(e) => {
-                    println!("Error generating input: {e:?}");
-                    continue;
-                }
-            };
-            fuzzer
-                .evaluate_input(&mut state, &mut executor, &mut restarting_mgr, &input)
-                .unwrap();
-        }
+        let mutator = FandangoPseudoMutator::new(
+            FandangoPythonModule::new(&args.python_interface_path, &args.fandango_file).unwrap(),
+        );
+
+        let mut stages = tuple_list!(StdMutationalStage::with_max_iterations(
+            mutator,
+            nonzero!(1) // this is important, we don't want to call fandango multiple times between target invocations
+        ));
+
+        // the fuzzer needs one initial input, otherwise the scheduler (obviously) isn't happy
+        state
+            .corpus_mut()
+            .add(Testcase::new(BytesInput::new(b"42".to_vec())))?;
+
+        fuzzer.fuzz_loop(&mut stages, &mut executor, &mut state, &mut restarting_mgr)
     };
 
     match Launcher::builder()
@@ -138,7 +139,7 @@ pub fn main() -> Result<(), String> {
         .run_client(&mut run_client)
         .cores(&args.cores)
         .broker_port(1337)
-        .stdout_file(Some("/dev/null"))
+        // .stdout_file(Some("/dev/null"))
         .build()
         .launch()
     {
