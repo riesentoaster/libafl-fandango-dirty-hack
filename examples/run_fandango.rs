@@ -5,17 +5,20 @@ use libafl_fandango_dirty_hack::fandango::{FandangoPythonModule, FandangoPythonM
 #[command(name = "run_fandango")]
 #[command(about = "Run the fandango interface in Python")]
 struct Args {
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "examples/run_fandango.py")]
     python_interface_path: String,
-    #[arg(short, long)]
+    #[arg(short, long, default_value = "examples/even_numbers.fan")]
     fandango_file: String,
 }
 
 fn main() -> Result<(), String> {
     let args = Args::parse();
 
-    let fandango = match FandangoPythonModule::new(&args.python_interface_path, &args.fandango_file)
-    {
+    let fandango = match FandangoPythonModule::new(
+        &args.python_interface_path,
+        &args.fandango_file,
+        &[],
+    ) {
         Ok(fandango) => fandango,
         Err(FandangoPythonModuleInitError::PyErr(e)) => {
             return Err(format!(
@@ -29,10 +32,14 @@ fn main() -> Result<(), String> {
     };
 
     for _ in 0..10 {
+        let input = fandango.next_input().unwrap();
+        let num_parses = fandango.parse_input(&input).unwrap();
         println!(
-            "{}",
-            String::from_utf8(fandango.next_input().unwrap()).unwrap()
+            "{} can be parsed {} different ways", // this grammar always produces inputs that can be parsed in exactly one way — but this isn't necessarily true for all grammars
+            String::from_utf8(input).unwrap(),
+            num_parses
         );
+        assert!(num_parses == 1);
     }
 
     Ok(())

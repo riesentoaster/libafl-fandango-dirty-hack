@@ -3,7 +3,7 @@ use std::{
     path::Path,
 };
 
-use pyo3::prelude::*;
+use pyo3::{prelude::*, types::PyDict};
 
 pub struct FandangoPythonModule {
     module: Py<PyModule>,
@@ -19,7 +19,11 @@ pub enum FandangoPythonModuleInitError {
 }
 
 impl FandangoPythonModule {
-    pub fn new(path: &str, fandango_file: &str) -> Result<Self, FandangoPythonModuleInitError> {
+    pub fn new(
+        path: &str,
+        fandango_file: &str,
+        kwargs: &[(&str, &str)],
+    ) -> Result<Self, FandangoPythonModuleInitError> {
         let code = Self::read_code(path)?;
         let (file_name, file_name_str) = Self::sanitize_file_name(path)?;
         let module_name = Self::sanitize_module_name(path, file_name_str)?;
@@ -29,15 +33,23 @@ impl FandangoPythonModule {
                 .map_err(FandangoPythonModuleInitError::PyErr)?;
             let module: Py<PyModule> = module.into();
 
+            let wrapped_kwargs = PyDict::new(py);
+            for (k, v) in kwargs {
+                wrapped_kwargs.set_item(k, v).unwrap();
+            }
+
             let generator = module
                 .getattr(py, "setup")
                 .map_err(FandangoPythonModuleInitError::PyErr)?
-                .call1(py, (fandango_file,))
+                .call1(py, (fandango_file, wrapped_kwargs))
                 .map_err(FandangoPythonModuleInitError::PyErr)?;
 
-            // check if next_input is defined
+            // check if next_input and parse_input are defined
             module
                 .getattr(py, "next_input")
+                .map_err(FandangoPythonModuleInitError::PyErr)?;
+            module
+                .getattr(py, "parse_input")
                 .map_err(FandangoPythonModuleInitError::PyErr)?;
 
             Ok(Self { module, generator })
@@ -112,6 +124,16 @@ impl FandangoPythonModule {
                 .call1(py, (generator,))?
                 .extract::<Vec<u8>>(py)?;
             Ok(input)
+        })
+    }
+
+    pub fn parse_input(&self, input: &[u8]) -> Result<u32, PyErr> {
+        Python::with_gil(|py| {
+            let generator = self.generator.clone_ref(py);
+            self.module
+                .getattr(py, "parse_input")?
+                .call1(py, (generator, input))?
+                .extract::<u32>(py)
         })
     }
 }

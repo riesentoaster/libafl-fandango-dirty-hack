@@ -489,6 +489,7 @@ dependencies = [
  "libafl_bolts",
  "log",
  "pyo3",
+ "serde",
 ]
 
 [[package]]

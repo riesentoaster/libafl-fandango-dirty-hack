@@ -1,18 +1,49 @@
-from fandango import Fandango
-from typing import Generator
+import os
+from typing import Any
+from fandango import Fandango, FandangoParseError
 import random
+
 random.seed(0)
 
-def setup(fan_file: str) -> Generator[bytes, None, None]:
-    with open(fan_file) as f:
-        fan = Fandango(f)
-    generator = fan.generate_solutions()
-    return generator
 
-def next_input(generator: Generator[bytes, None, None]) -> bytes:
-    return bytes(next(generator))
+class FandangoWrapper:
+    def __init__(self, fan_file: str, kwargs: dict[str, Any]):
+        with open(fan_file) as f:
+            self.fan = Fandango(f, **kwargs)
+        self.generator = self.fan.generate_solutions()
+
+
+def setup(fan_file: str, kwargs: dict[str, Any]) -> FandangoWrapper:
+    return FandangoWrapper(fan_file, kwargs)
+
+
+def next_input(wrapper: FandangoWrapper) -> bytes:
+    return bytes(next(wrapper.generator))
+
+
+def parse_input(wrapper: FandangoWrapper, input: bytes) -> int:
+    try:
+        grammar_correct_inputs = wrapper.fan.parse(input)
+        filtered_inputs = filter(
+            lambda x: all(e.check(x) for e in wrapper.fan.constraints),
+            grammar_correct_inputs,
+        )
+
+        return len(list(filtered_inputs))
+    except FandangoParseError:
+        return 0
+    except Exception as e:
+        print(e)
+        return 0
+
 
 if __name__ == "__main__":
-    gen = setup("even_numbers.fan")
+    # path relative to this script
+    gen = setup(os.path.dirname(__file__) + "/even_numbers.fan")
     for i in range(10):
-        print(next_input(gen))
+        input = next_input(gen)
+        print(input)
+        assert parse_input(gen, input) > 0
+    assert parse_input(gen, b"1") == 0, parse_input(gen, b"1")
+    assert parse_input(gen, b"0") == 1, parse_input(gen, b"0")
+    assert parse_input(gen, b"2") == 1, parse_input(gen, b"2")

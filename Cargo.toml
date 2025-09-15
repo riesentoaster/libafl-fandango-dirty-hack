@@ -12,6 +12,10 @@ name = "baby_fuzzer_generator"
 path = "examples/baby_fuzzer_generator.rs"
 
 [[example]]
+name = "baby_fuzzer_differential"
+path = "examples/baby_fuzzer_differential.rs"
+
+[[example]]
 name = "baby_fuzzer_mutator"
 path = "examples/baby_fuzzer_mutator.rs"
 
@@ -24,3 +28,4 @@ log = "0.4.27"
 libafl = "0.15.3"
 libafl_bolts = "0.15.3"
 pyo3 = { version = "0.25.1", features = ["auto-initialize"] }
+serde = { version = "1.0.219", features = ["derive"] }
