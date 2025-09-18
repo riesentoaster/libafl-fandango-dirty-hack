@@ -1,6 +1,6 @@
 import os
 from typing import Any
-from fandango import Fandango, FandangoParseError
+from fandango import Fandango
 import random
 
 random.seed(0)
@@ -22,24 +22,13 @@ def next_input(wrapper: FandangoWrapper) -> bytes:
 
 
 def parse_input(wrapper: FandangoWrapper, input: bytes) -> int:
-    try:
-        grammar_correct_inputs = wrapper.fan.parse(input)
-        filtered_inputs = filter(
-            lambda x: all(e.check(x) for e in wrapper.fan.constraints),
-            grammar_correct_inputs,
-        )
-
-        return len(list(filtered_inputs))
-    except FandangoParseError:
-        return 0
-    except Exception as e:
-        print(e)
-        return 0
+    return len(list(wrapper.fan.parse(input)))
 
 
 if __name__ == "__main__":
     # path relative to this script
-    gen = setup(os.path.dirname(__file__) + "/even_numbers.fan")
+    fan_file = os.path.dirname(__file__) + "/even_numbers.fan"
+    gen = setup(fan_file, {})
     for i in range(10):
         input = next_input(gen)
         print(input)
