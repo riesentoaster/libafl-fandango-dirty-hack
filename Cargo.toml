@@ -1,5 +1,5 @@
 [package]
-name = "libafl-fandango-dirty-hack"
+name = "libafl-fandango-pyo3"
 version = "0.1.0"
 edition = "2024"
 

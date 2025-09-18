@@ -30,7 +30,7 @@ use libafl_bolts::{
     shmem::{ShMemProvider, StdShMemProvider},
     tuples::{Handle, Handled as _, MatchNameRef, tuple_list},
 };
-use libafl_fandango_dirty_hack::{
+use libafl_fandango_pyo3::{
     fandango::{FandangoPythonModule, FandangoPythonModuleInitError},
     libafl::FandangoParseExecutor,
 };

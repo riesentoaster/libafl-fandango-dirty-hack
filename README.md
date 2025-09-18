@@ -1,4 +1,4 @@
-# libafl-fandango (dirty hack edition)
+# libafl-fandango (PyO3 edition)
 
 This will allow you to run [Fandango](https://github.com/fandango-fuzzer/fandango) as a [LibAFL](https://github.com/aflplusplus/libafl) Generator, Mutator, or Executor.
 
@@ -41,7 +41,7 @@ cargo run --example run_fandango --release -- --python-interface-path examples/r
 
 ### Using it in a fuzzer
 
-There are three ways of running libafl_fandango_dirty_hack in LibAFL: As a generator, as a pseudo-mutator, and as an executor.
+There are three ways of running libafl_fandango_pyo3 in LibAFL: As a generator, as a pseudo-mutator, and as an executor.
 
 - The generator is the obvious and ideomatic answer.
 - Using it as a pseudo-mutator is handy if you are building a mutational fuzzer anyway and just want to replace your mutator. Using it as a mutator will introduce a small performance benefit (running the scheduler, cloning the input to be mutated before it is immediately overwritten again, etc.), but compared to the overhead of running Python, I find this negligable. It also requires the corpus to not be empty (it needs to be primed) and a mutational stage to be created (make sure to only run one mutation to prevent unnecessary runtime).

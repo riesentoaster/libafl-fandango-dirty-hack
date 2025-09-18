@@ -20,7 +20,7 @@ use libafl_bolts::{
     rands::StdRand,
     shmem::{ShMemProvider, StdShMemProvider},
 };
-use libafl_fandango_dirty_hack::{
+use libafl_fandango_pyo3::{
     fandango::{FandangoPythonModule, FandangoPythonModuleInitError},
     libafl::FandangoGenerator,
 };

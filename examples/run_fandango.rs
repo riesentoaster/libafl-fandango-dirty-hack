@@ -1,5 +1,5 @@
 use clap::Parser;
-use libafl_fandango_dirty_hack::fandango::{FandangoPythonModule, FandangoPythonModuleInitError};
+use libafl_fandango_pyo3::fandango::{FandangoPythonModule, FandangoPythonModuleInitError};
 
 #[derive(Parser)]
 #[command(name = "run_fandango")]
