@@ -1,7 +1,12 @@
 [package]
 name = "libafl-fandango-pyo3"
 version = "0.1.0"
+authors = ["Valentin Huber <contact@valentinhuber.com>"]
+license = "MIT"
+repository = "https://github.com/riesentoaster/libafl-fandango-pyo3"
+description = "A library for running Fandango as in LibAFL using PyO3"
 edition = "2024"
+readme = "README.md"
 
 [[example]]
 name = "run_fandango"
